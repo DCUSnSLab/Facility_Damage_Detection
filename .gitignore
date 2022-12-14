@@ -1,0 +1,10 @@
+**/logs/*
+**/datasets/*
+*.jpeg
+*.png
+*.jpg
+*.txt
+*.json
+**/weights/*
+**/__pycache__/*
+*.bak
