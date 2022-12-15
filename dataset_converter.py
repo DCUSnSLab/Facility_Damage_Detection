@@ -135,75 +135,40 @@ def get_base_dict():
     return dict(base_dict)
 
 if __name__ == '__main__':
-
-
-
-    # print(base_dict["licenses"])
-
-    #
-    # json_path = '/home/dgdgksj/facility/datasets/facility/train_label'
-    # image_path = '/home/dgdgksj/facility/datasets/facility/train'
     json_path = '/home/dgdgksj/facility/datasets/facility/val_label'
     image_path = '/home/dgdgksj/facility/datasets/facility/val'
     save_path = '/home/dgdgksj/facility/datasets/facility/annotations'
 
-    # print(os.listdir(labels_path))
+
     json_path_list = os.listdir(json_path)
     image_path_list = os.listdir(image_path)
     category_list = ["RoadSafetySign", "WalkAcrossPreventionFacility", "ProtectionFence", "SignalPole", 'damage',
                      "discoloration", "surfacePeeling", "distortion"]
-    # test_list =[]
-    # for i in range(len(os.listdir(json_path))):
-    #     print(image_path_list[i],json_path_list[i])
-        # file_name = image_path_list[i]
-        # test_list.append(file_name.split('.')[1])
-    # print(set(test_list))
-        # if(file_name.split('.')[1]=='jpg'):
-            # print(os.path.join(image_path,file_name),'->',os.path.join(image_path,file_name.split('.')[0]+'.jpeg'))
-            # os.rename(os.path.join(image_path,file_name),os.path.join(image_path,file_name.split('.')[0]+'.jpeg'))
 
-
-    # for i in tqdm(range(len(os.listdir(json_path)))):
     base_dict = get_base_dict()
     cnt = 0
-    for i in tqdm(range(len(os.listdir(json_path)))):
-    # for i in range(len(os.listdir(json_path))):
+    # for i in tqdm(range(len(os.listdir(json_path)))):
+    for i in range(len(os.listdir(json_path))):
         file_name = json_path_list[i]
         img_name = file_name.split('.')[0]+'.jpeg'
         img = cv2.imread(os.path.join(image_path,img_name))
         height, width, _ = img.shape
-        # image_dict = get_image_dict(i,width,height,img_name)
-        # print('image dict')
-        # print(image_dict,type(image_dict))
-        # print('-------------')
-        #
-        # print('base_dict')
-        # print(type(base_dict['images']),base_dict['images'])
+
         base_dict['images'].append(get_image_dict(i, width, height, img_name)[0])
-        # print(base_dict)
-        # print('-------------')
+
         with open(os.path.join(json_path, file_name)) as f:
             json_object = json.load(f)
             cate_bbox = []
-            # print(json_object)
+
             for data in json_object['annotations']:
-                # print('\t',data)
-                # get_categpry_bbox(data,category_list)
                 category,bbox = get_category_bbox(data,category_list)
-                # print("category,bbox",category,bbox)
+
                 if(category != None):
                     base_dict['annotations'].append(get_annotations_dict(cnt,i,category,bbox)[0])
                 else:
                     pass
                 cnt+=1
 
-        # print('\t', cate_bbox)
-        # break
-        # if(i>30):
-        #     break
-        # print(base_dict)
-        # print('*'*50)
-    # print(base_dict)
     # with open(os.path.join(save_path, './instances_train.json'), 'w') as f:
     with open(os.path.join(save_path,'./instances_val.json'), 'w') as f:
         json.dump(base_dict, f)
