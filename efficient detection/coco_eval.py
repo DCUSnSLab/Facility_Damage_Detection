@@ -137,12 +137,14 @@ def _eval(coco_gt, image_ids, pred_json_path):
 
 if __name__ == '__main__':
     SET_NAME = params['val_set']
-    VAL_GT = f'datasets/{params["project_name"]}/annotations/instances_{SET_NAME}.json'
-    VAL_IMGS = f'datasets/{params["project_name"]}/{SET_NAME}/'
+    # VAL_GT = f'datasets/{params["project_name"]}/annotations/instances_{SET_NAME}.json'
+    # VAL_IMGS = f'datasets/{params["project_name"]}/{SET_NAME}/'
+    VAL_GT = f'../datasets/facility/annotations/instances_{SET_NAME}.json'
+    VAL_IMGS = f'../datasets/facility//{SET_NAME}/'
     MAX_IMAGES = 10000
     coco_gt = COCO(VAL_GT)
     image_ids = coco_gt.getImgIds()[:MAX_IMAGES]
-    
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
     if override_prev_results or not os.path.exists(f'{SET_NAME}_bbox_results.json'):
         model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
                                      ratios=eval(params['anchors_ratios']), scales=eval(params['anchors_scales']))
@@ -155,7 +157,12 @@ if __name__ == '__main__':
 
             if use_float16:
                 model.half()
-
+        # print('*'*50)
+        # print(VAL_IMGS)
+        # print('*' * 50)
+        # print(SET_NAME)
+        # print(image_ids)
+        # print(coco_gt)
         evaluate_coco(VAL_IMGS, SET_NAME, image_ids, coco_gt, model)
 
     _eval(coco_gt, image_ids, f'{SET_NAME}_bbox_results.json')

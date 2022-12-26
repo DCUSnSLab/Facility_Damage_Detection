@@ -119,6 +119,7 @@ def train(opt):
     #                            transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
     #                                                          Augmenter(),
     #                                                          Resizer(input_sizes[opt.compound_coef])]))
+    # 여기서 강제로 경로를 facility로 합니다
     training_set = CocoDataset(root_dir=os.path.join(opt.data_path, "facility"), set=params.train_set,
                                transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
                                                              Augmenter(),
@@ -337,5 +338,6 @@ if __name__ == '__main__':
 
     opt = get_args()
     # print(opt)
-    setproctitle(opt.load_weights+str(opt.batch_size))
+    setproctitle("나한테 말점")
+    # setproctitle( opt.load_weights + str(opt.batch_size))
     train(opt)
