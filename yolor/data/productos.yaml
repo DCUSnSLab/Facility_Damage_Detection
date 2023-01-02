@@ -1,0 +1,12 @@
+
+# train and val datasets (image directory or *.txt file with image paths)
+train: ../datasets/productos/train.txt  # 118k images
+val: ../datasets/productos/val.txt  # 5k images
+test: ../datasets/productos/test.txt  # 20k images for submission to https://competitions.codalab.org/competitions/20794
+
+# number of classes
+nc: 2
+
+# class names
+names: ['Producto', 'Titulo']
+

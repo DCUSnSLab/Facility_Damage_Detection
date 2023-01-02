@@ -1,0 +1,12 @@
+
+# train and val datasets (image directory or *.txt file with image paths)
+train: ../datasets/facility_yolo2/train.txt  # 118k images
+val: ../datasets/facility_yolo2/val.txt  # 5k images
+test: ../datasets/facility_yolo/test.txt  # 20k images for submission to https://competitions.codalab.org/competitions/20794
+
+# number of classes
+nc: 3
+
+# class names
+names: ['damage', 'surfacePeeling', 'distortion']
+

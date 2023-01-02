@@ -8,3 +8,5 @@
 **/weights/*
 **/__pycache__/*
 *.bak
+*.pt
+*.pth
