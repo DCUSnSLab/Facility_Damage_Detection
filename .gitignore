@@ -2,3 +2,6 @@
 *.pt
 *.jpg
 .idea
+Dataset/
+Logs/
+Output/
