@@ -23,20 +23,26 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.utils.data.distributed
-from setproctitle import *
 from tqdm import tqdm
 
+src_dir = os.path.dirname(os.path.realpath(__file__))
+while not src_dir.endswith("sfa"):
+    src_dir = os.path.dirname(src_dir)
+if src_dir not in sys.path:
+    sys.path.append(src_dir)
 
-from LiDAR_Detection.sfa3d.visualization import dataloader
-from LiDAR_Detection.sfa3d.model import model_utils
-from LiDAR_Detection.sfa3d.utils import train_utils, torch_utils, misc, Logger
-from LiDAR_Detection.sfa3d.config import train_config
-from LiDAR_Detection.sfa3d.evaluation import Losses
+from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
+from models.model_utils import create_model, make_data_parallel, get_num_parameters
+from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint
+from utils.torch_utils import reduce_tensor, to_python_float
+from utils.misc import AverageMeter, ProgressMeter
+from utils.logger import Logger
+from config.train_config import parse_train_configs
+from losses.losses import Compute_Loss
 
 
 def main():
-    setproctitle('Lidar Detection')
-    configs = train_config.parse_train_configs()
+    configs = parse_train_configs()
 
     # Re-produce results
     if configs.seed is not None:
@@ -84,15 +90,15 @@ def main_worker(gpu_idx, configs):
 
     if configs.is_master_node:
         logger = Logger(configs.logs_dir, configs.saved_fn)
-        # logger.info('>>> Created a new logger')
-        # logger.info('>>> configs: {}'.format(configs))
+        logger.info('>>> Created a new logger')
+        logger.info('>>> configs: {}'.format(configs))
         tb_writer = SummaryWriter(log_dir=os.path.join(configs.logs_dir, 'tensorboard'))
     else:
         logger = None
         tb_writer = None
 
     # model
-    model = model_utils.create_model(configs)
+    model = create_model(configs)
 
     # load weight from a checkpoint
     if configs.pretrained_path is not None:
@@ -109,11 +115,11 @@ def main_worker(gpu_idx, configs):
             logger.info('resume training model from checkpoint {}'.format(configs.resume_path))
 
     # Data Parallel
-    model = model_utils.make_data_parallel(model, configs)
+    model = make_data_parallel(model, configs)
 
     # Make sure to create optimizer after moving the model to cuda
-    optimizer = train_utils.create_optimizer(configs, model)
-    lr_scheduler = train_utils.create_lr_scheduler(optimizer, configs)
+    optimizer = create_optimizer(configs, model)
+    lr_scheduler = create_lr_scheduler(optimizer, configs)
     configs.step_lr_in_epoch = False if configs.lr_type in ['multi_step', 'cosin', 'one_cycle'] else True
 
     # resume optimizer, lr_scheduler from a checkpoint
@@ -126,50 +132,45 @@ def main_worker(gpu_idx, configs):
         configs.start_epoch = utils_state_dict['epoch'] + 1
 
     if configs.is_master_node:
-        num_parameters = model_utils.get_num_parameters(model)
+        num_parameters = get_num_parameters(model)
         logger.info('number of trained parameters of the model: {}'.format(num_parameters))
 
     if logger is not None:
         logger.info(">>> Loading dataset & getting dataloader...")
     # Create dataloader
-    train_dataloader, train_sampler = dataloader.create_train_dataloader(configs)
+    train_dataloader, train_sampler = create_train_dataloader(configs)
     if logger is not None:
         logger.info('number of batches in training set: {}'.format(len(train_dataloader)))
 
     if configs.evaluate:
-        train_dataloader = dataloader.create_train_dataloader(configs)
-        val_dataloader = dataloader.create_val_dataloader(configs)
-        train_loss = validate(train_dataloader, model, configs)
+        val_dataloader = create_val_dataloader(configs)
         val_loss = validate(val_dataloader, model, configs)
-        print('train_loss: {:.4e}'.format(train_loss))
         print('val_loss: {:.4e}'.format(val_loss))
+        return
 
-    val_loss_list = []
     for epoch in range(configs.start_epoch, configs.num_epochs + 1):
-        # if logger is not None:
-        #     logger.info('{}'.format('*-' * 40))
-        #     logger.info('{} {}/{} {}'.format('=' * 35, epoch, configs.num_epochs, '=' * 35))
-        #     logger.info('{}'.format('*-' * 40))
-        #     logger.info('>>> Epoch: [{}/{}]'.format(epoch, configs.num_epochs))
+        if logger is not None:
+            logger.info('{}'.format('*-' * 40))
+            logger.info('{} {}/{} {}'.format('=' * 35, epoch, configs.num_epochs, '=' * 35))
+            logger.info('{}'.format('*-' * 40))
+            logger.info('>>> Epoch: [{}/{}]'.format(epoch, configs.num_epochs))
 
         if configs.distributed:
             train_sampler.set_epoch(epoch)
         # train for one epoch
         train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, logger, tb_writer)
         if (not configs.no_val) and (epoch % configs.checkpoint_freq == 0):
-            val_dataloader = dataloader.create_val_dataloader(configs)
+            val_dataloader = create_val_dataloader(configs)
             print('number of batches in val_dataloader: {}'.format(len(val_dataloader)))
             val_loss = validate(val_dataloader, model, configs)
             print('val_loss: {:.4e}'.format(val_loss))
-            val_loss_list.append(val_loss)
-            with open('train_curve.txt', 'a') as f:
-                f.write(f'{epoch} {val_loss}\n')
             if tb_writer is not None:
                 tb_writer.add_scalar('Val_loss', val_loss, epoch)
+
         # Save checkpoint
         if configs.is_master_node and ((epoch % configs.checkpoint_freq) == 0):
-            model_state_dict, utils_state_dict = train_utils.get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-            train_utils.save_checkpoint(configs.checkpoints_dir, configs.saved_fn, model_state_dict, utils_state_dict, epoch)
+            model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
+            save_checkpoint(configs.checkpoints_dir, configs.saved_fn, model_state_dict, utils_state_dict, epoch)
 
         if not configs.step_lr_in_epoch:
             lr_scheduler.step()
@@ -187,14 +188,14 @@ def cleanup():
 
 
 def train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, logger, tb_writer):
-    batch_time = misc.AverageMeter('Time', ':6.3f')
-    data_time = misc.AverageMeter('Data', ':6.3f')
-    losses = misc.AverageMeter('Loss', ':.4e')
+    batch_time = AverageMeter('Time', ':6.3f')
+    data_time = AverageMeter('Data', ':6.3f')
+    losses = AverageMeter('Loss', ':.4e')
 
-    progress = misc.ProgressMeter(len(train_dataloader), [batch_time, data_time, losses],
+    progress = ProgressMeter(len(train_dataloader), [batch_time, data_time, losses],
                              prefix="Train - Epoch: [{}/{}]".format(epoch, configs.num_epochs))
 
-    criterion = Losses.Compute_Loss(device=configs.device)
+    criterion = Compute_Loss(device=configs.device)
     num_iters_per_epoch = len(train_dataloader)
     # switch to train mode
     model.train()
@@ -226,10 +227,10 @@ def train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, con
                     tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
 
         if configs.distributed:
-            reduced_loss = torch_utils.reduce_tensor(total_loss.data, configs.world_size)
+            reduced_loss = reduce_tensor(total_loss.data, configs.world_size)
         else:
             reduced_loss = total_loss.data
-        losses.update(torch_utils.to_python_float(reduced_loss), batch_size)
+        losses.update(to_python_float(reduced_loss), batch_size)
         # measure elapsed time
         # torch.cuda.synchronize()
         batch_time.update(time.time() - start_time)
@@ -247,13 +248,13 @@ def train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, con
 
 
 def validate(val_dataloader, model, configs):
-    losses = misc.AverageMeter('Loss', ':.4e')
-    criterion = Losses.Compute_Loss(device=configs.device)
+    losses = AverageMeter('Loss', ':.4e')
+    criterion = Compute_Loss(device=configs.device)
     # switch to train mode
     model.eval()
     with torch.no_grad():
         for batch_idx, batch_data in enumerate(tqdm(val_dataloader)):
-            metadatas, imgs, targets= batch_data
+            metadatas, imgs, targets = batch_data
             batch_size = imgs.size(0)
             for k in targets.keys():
                 targets[k] = targets[k].to(configs.device, non_blocking=True)
@@ -265,10 +266,10 @@ def validate(val_dataloader, model, configs):
                 total_loss = torch.mean(total_loss)
 
             if configs.distributed:
-                reduced_loss = torch_utils.reduce_tensor(total_loss.data, configs.world_size)
+                reduced_loss = reduce_tensor(total_loss.data, configs.world_size)
             else:
                 reduced_loss = total_loss.data
-            losses.update(torch_utils.to_python_float(reduced_loss), batch_size)
+            losses.update(to_python_float(reduced_loss), batch_size)
 
     return losses.avg
 

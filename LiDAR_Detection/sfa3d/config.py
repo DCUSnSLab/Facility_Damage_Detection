@@ -172,5 +172,3 @@ class train_config:
         if not os.path.isdir(configs.logs_dir):
             os.makedirs(configs.logs_dir)
         return configs
-
-

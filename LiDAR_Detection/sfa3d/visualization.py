@@ -10,6 +10,7 @@ import math
 from torch.utils.data import DataLoader
 from builtins import int
 from torch.utils.data import Dataset
+import open3d
 
 src_dir = os.path.dirname(os.path.realpath(__file__))
 while not src_dir.endswith("sfa3d"):
@@ -258,20 +259,20 @@ class Dataset(Dataset):
             lidar_data = np.fromfile(f, dtype=np.float32)
             lidar_data = lidar_data.reshape((-1, 4))
 
-        # 회전 각도 (시계 방향으로 90도 회전)
+        # È¸Àü °¢µµ (½Ã°è ¹æÇâÀ¸·Î 90µµ È¸Àü)
         angle = np.radians(90)
 
-        # 회전 처리 테스트
+        # È¸Àü Ã³¸® Å×½ºÆ®
         axis = np.array([0, 0, 1])  # Z\ucd95
 
-        # 회전 변환 모듈 제작
+        # È¸Àü º¯È¯ ¸ðµâ Á¦ÀÛ
         rotation_matrix = np.array([
             [np.cos(angle), -np.sin(angle), 0],
             [np.sin(angle), np.cos(angle), 0],
             [0, 0, 1]
         ])
 
-        # 회전 사용
+        # È¸Àü »ç¿ë
         rotated_lidar_data = np.dot(lidar_data[:, :3], rotation_matrix.T)
         rotated_lidar_data = np.hstack((rotated_lidar_data, lidar_data[:, 3:]))
 
