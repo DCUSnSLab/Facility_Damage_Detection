@@ -5,7 +5,7 @@
 *.cfg
 .idea
 **/__pycache__/**
-Dataset/
+Dataset
 Logs/
 Output/
 Camera_Detection/
@@ -17,3 +17,4 @@ test.py
 yolo2yaml.py
 run_cam_dec.py
 run_cm_train.py
+bin/

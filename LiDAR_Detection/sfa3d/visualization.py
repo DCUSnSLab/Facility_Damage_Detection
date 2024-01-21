@@ -10,7 +10,7 @@ import math
 from torch.utils.data import DataLoader
 from builtins import int
 from torch.utils.data import Dataset
-import open3d
+# import open3d
 
 src_dir = os.path.dirname(os.path.realpath(__file__))
 while not src_dir.endswith("sfa3d"):
@@ -130,7 +130,7 @@ class dataloader:
         test_dataloader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False,
                                      pin_memory=self.pin_memory, num_workers=self.num_workers,
                                      sampler=test_sampler)
-
+        print('visualization_133')
         return test_dataloader
 
 class Dataset(Dataset):
@@ -144,15 +144,20 @@ class Dataset(Dataset):
 
         assert mode in ['train', 'val', 'test'], 'Invalid mode: {}'.format(mode)
         self.mode = mode
-        self.is_test = (self.mode == 'test')
-        sub_folder = 'test_dataset' if self.is_test else 'train_dataset'
+        if self.mode == 'test':
+            self.is_test = self.mode
+            sub_folder = 'lidar_dataset/test'
+        else :
+            sub_folder = 'lidar_dataset/train'
+        # self.is_test = (self.mode == 'test')
+        # sub_folder = 'lidar_dataset/train' if self.is_test else 'lidar_dataset/test'
         # sub_folder = 'train_dataset' if self.is_test else 'test_dataset'
         # sub_folder = 'testing' if self.is_test else 'training'
         self.lidar_aug = lidar_aug
         self.hflip_prob = hflip_prob
         self.image_dir = os.path.join(self.dataset_dir, sub_folder, "image")
         self.lidar_dir = os.path.join(self.dataset_dir, sub_folder, "lidar")
-        self.calib_dir = os.path.join(self.dataset_dir, "calib")
+        self.calib_dir = os.path.join(self.dataset_dir, sub_folder, "calib")
         self.label_dir = os.path.join(self.dataset_dir, sub_folder, "label")
         self.sample_id_list = sorted([file_name[:-4] for file_name in os.listdir(self.lidar_dir) if file_name.endswith('.bin')])
 
@@ -1235,9 +1240,11 @@ class evaluation_utils:
     # \uc774\ubd80\ubd84 \uccb4\ud06c\ud574\uc8fc\uc138\uc694!!!
     def convert_det_to_real_values(detections, num_classes=8):
         kitti_dets = []
+
         for cls_id in range(num_classes):
             print("cls_id_170 : ", cls_id)
             print("detections[cls_id]_172 : ", detections[cls_id])
+
             if len(detections[cls_id]) > 0:
 
                 for det in detections[cls_id]:
@@ -1251,7 +1258,6 @@ class evaluation_utils:
                     l = _l / cnf.BEV_HEIGHT * cnf.bound_size_x
 
                     kitti_dets.append([cls_id, x, y, z, _h, w, l, _yaw])
-
         return np.array(kitti_dets)
 
 class visualization_utils:

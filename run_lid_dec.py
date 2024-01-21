@@ -76,11 +76,9 @@ if __name__ == '__main__':
     out_cap = None
 
     model.eval()
-
     test_dataloader = dataloader.create_test_dataloader(configs)
     with torch.no_grad():
         for batch_idx, batch_data in enumerate(test_dataloader):
-
             metadatas, bev_maps, img_rgbs = batch_data
             input_bev_maps = bev_maps.to(configs.device, non_blocking=True).float()
             t1 = misc.time_synchronized()
@@ -112,6 +110,7 @@ if __name__ == '__main__':
             # img_bgr = cv2.rotate(img_bgr, cv2.ROTATE_90_CLOCKWISE)
             calib = data_utils.Calibration(img_path.replace(".png", ".txt").replace("image", "calib"))
             kitti_dets = evaluation_utils.convert_det_to_real_values(detections)
+
             if len(kitti_dets) > 0:
                 kitti_dets[:, 1:] = transformation.lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
                 img_bgr = visualization_utils.show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
@@ -121,7 +120,7 @@ if __name__ == '__main__':
 
             print('\tDone testing the {}th sample, time: {:.1f}ms, speed {:.2f}FPS'.format(batch_idx, (t2 - t1) * 1000,
                                                                                            1 / (t2 - t1)))
-            test_folder = "/mnt/home/jo/Facility_Damage_Detection/Dataset/test_dataset/lidar"
+            test_folder = "/mnt/home/jo/Facility_Damage_Detection/Dataset/lidar_dataset/test/lidar"
             output_folder = "/mnt/home/jo/Facility_Damage_Detection/Output/LiDAR_Detection/"
             f_name=[]
             file_list= sorted(os.listdir(test_folder))
