@@ -111,6 +111,8 @@ if __name__ == '__main__':
             calib = data_utils.Calibration(img_path.replace(".png", ".txt").replace("image", "calib"))
             kitti_dets = evaluation_utils.convert_det_to_real_values(detections)
 
+            # evaluation_utils.cal_object_continuty(detections)
+
             if len(kitti_dets) > 0:
                 kitti_dets[:, 1:] = transformation.lidar_to_camera_box(kitti_dets[:, 1:], calib.V2C, calib.R0, calib.P2)
                 img_bgr = visualization_utils.show_rgb_image_with_boxes(img_bgr, kitti_dets, calib)
